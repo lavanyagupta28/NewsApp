@@ -100,7 +100,7 @@ fun DetailScreen(article: Article, navController: NavHostController) {
         )
 
         Text(
-            text = article.description.toString(),
+            text = article.content.toString(),
             textAlign = TextAlign.Justify,
             letterSpacing = 0.5.sp,
             fontSize = 15.sp,

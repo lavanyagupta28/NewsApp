@@ -2,6 +2,7 @@ package com.example.newsapp.screens
 
 
 import android.os.Build
+import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -24,6 +25,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,6 +52,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 fun parseMockJson(): NewsResponse {
     val gson = Gson()
@@ -56,15 +61,29 @@ fun parseMockJson(): NewsResponse {
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun HomeScreen(navController: NavHostController) {
+fun HomeScreen(navController: NavHostController, viewModel: NewsViewModel = viewModel()) {
     val newsResponse = parseMockJson()
-    val articles: List<Article> = newsResponse.articles
-
-
+    val articles by viewModel.articles.collectAsState()
+    //val articles: List<Article> = newsResponse.articles
     var enabledCategory by remember { mutableStateOf<Int?>(null) }
-//    articles.forEach { article ->
-//        Log.d("TAG", article.title)
-//    }
+//    viewModel.fetchTopHeadlines(country = "us", apiKey = "5295431c324e40cda836afe94620ac39", category = if(enabledCategory == null) null
+//                                                                                                                else {
+//        buttonList[enabledCategory!!].category
+//                                                                                                                }
+//    )
+    LaunchedEffect(enabledCategory) {
+        viewModel.fetchTopHeadlines(
+            country = "us",
+            apiKey = "5295431c324e40cda836afe94620ac39",
+            category = enabledCategory?.let { buttonList[it].category }
+        )
+    }
+    //val filteredArticles = articles.filter { it.title != "[Removed]" }
+    val filteredArticles by derivedStateOf {
+        articles.filter { it.title != "[Removed]" }
+    }
+
+
 
     Column(
         modifier = Modifier
@@ -89,6 +108,8 @@ fun HomeScreen(navController: NavHostController) {
             enabledCategory = enabledCategory,
             onCategorySelected = { selectedCategory ->
                 enabledCategory = selectedCategory
+                val selectedButton = buttonList[selectedCategory].category
+                Log.d("CategorySelected", "Selected Category: $selectedButton")
             })
         Spacer(modifier = Modifier.height(10.dp))
 //    LazyColumn(modifier = Modifier) {
@@ -103,7 +124,8 @@ fun HomeScreen(navController: NavHostController) {
 //    }
 
         LazyColumn(modifier = Modifier) {
-            items(articles) { article ->
+            items(filteredArticles) { article ->
+
                 NewsItem(article = article, onClick = {
                     val articleJson = Gson().toJson(article)
                     val encodedArticleJson = URLEncoder.encode(articleJson, "UTF-8")
@@ -129,7 +151,7 @@ fun ButtonUi(
 //    )
 
     Row(
-        modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)
+        modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         buttonList.forEachIndexed { index, buttonItem ->
             CustomButton(label = buttonItem.lablel,
@@ -137,7 +159,10 @@ fun ButtonUi(
                 modifier = modifier
                     .weight(1f)
                     .height(45.dp),
-                onClick = { onCategorySelected(index) })
+                onClick = {
+                    onCategorySelected(index)
+
+                })
         }
     }
 }
@@ -150,7 +175,7 @@ fun CustomButton(
     Button(
         onClick = onClick,
         modifier = modifier.border(
-                width = 2.dp, color = Color.Black, shape = RoundedCornerShape(10.dp)
+                width = 1.5.dp, color = Color.Black, shape = RoundedCornerShape(10.dp)
             ),
         shape = RoundedCornerShape(10.dp),
         colors = ButtonDefaults.buttonColors(
@@ -215,8 +240,8 @@ fun NewsItem(article: Article, onClick: () -> Unit) {
                 .padding(vertical = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            article.author?.let { Text(text = it, color = Color.Gray) }
-
+            article.author?.let { Text(text = extractName(it), color = Color.Gray) }
+            Spacer(modifier = Modifier.weight(1f))
             Text(text = "$differenceDays Day Ago", color = Color.Gray)
         }
         Spacer(modifier = Modifier.height(30.dp))
@@ -239,7 +264,9 @@ fun ProfileButton(onClick: () -> Unit) {
         )
     }
 }
-
+fun extractName(input: String): String {
+    return input.substringBefore("|").trim()
+}
 
 @Preview(showBackground = true)
 @Composable
